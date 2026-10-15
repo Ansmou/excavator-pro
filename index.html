@@ -57,11 +57,17 @@
                  box-shadow:inset 0 3px 8px rgba(0,0,0,.6)}
   .hlever .hknob{position:absolute;top:50%;width:54px;height:54px;border-radius:50%;
                  transform:translate(-50%,-50%);left:50%;
+                 transition:left .22s cubic-bezier(.2,.9,.3,1.3);
                  display:flex;align-items:center;justify-content:center;
                  font-size:24px;color:#17395c;font-weight:900;
                  background:linear-gradient(180deg,#cdb4f4,#a06cd5);
                  box-shadow:0 4px 10px rgba(0,0,0,.5), inset 0 -6px 0 rgba(0,0,0,.22), inset 0 4px 0 rgba(255,255,255,.35);
                  border:3px solid #0b1c30}
+  .hlever.hold .hknob{transition:none}
+  .hlever .hslot::before{content:'◀';position:absolute;left:6px;top:50%;transform:translateY(-50%);
+                         color:#7fa7c9;font-size:10px}
+  .hlever .hslot::after{content:'▶';position:absolute;right:6px;top:50%;transform:translateY(-50%);
+                        color:#7fa7c9;font-size:10px}
   .hlever .hmid{position:absolute;left:50%;top:50%;width:4px;height:22px;transform:translate(-50%,-50%);
                 background:#3f6a94;border-radius:2px}
   .hlever label{font-size:.72rem;font-weight:900;color:#cfe8ff;letter-spacing:1px;padding-top:3px}
@@ -71,12 +77,18 @@
   .lever .slot{flex:1;width:26px;position:relative;border-radius:13px;
                background:linear-gradient(180deg,#0b1c30,#12314f);border:2px solid #3f6a94;
                box-shadow:inset 0 3px 8px rgba(0,0,0,.6)}
-  .lever .knob{position:absolute;left:50%;width:58px;height:44px;border-radius:14px;
+  .lever .knob{position:absolute;left:50%;top:50%;width:58px;height:44px;border-radius:14px;
                transform:translate(-50%,-50%);
+               transition:top .22s cubic-bezier(.2,.9,.3,1.3);
                display:flex;align-items:center;justify-content:center;
                font-size:22px;color:#17395c;font-weight:900;
                box-shadow:0 4px 10px rgba(0,0,0,.5), inset 0 -6px 0 rgba(0,0,0,.22), inset 0 4px 0 rgba(255,255,255,.35);
                border:3px solid #0b1c30}
+  .lever.hold .knob{transition:none}
+  .lever .slot::before{content:'▲';position:absolute;top:1px;left:50%;transform:translateX(-50%);
+                       color:#7fa7c9;font-size:10px;z-index:1}
+  .lever .slot::after{content:'▼';position:absolute;bottom:1px;left:50%;transform:translateX(-50%);
+                      color:#7fa7c9;font-size:10px;z-index:1}
   .lever[data-id="boom"]  .knob{background:linear-gradient(180deg,#ffc46b,#ff8c42)}
   .lever[data-id="stick"] .knob{background:linear-gradient(180deg,#7fd8d0,#2fa7a0)}
   .lever[data-id="buck"]  .knob{background:linear-gradient(180deg,#ff9b9b,#e63946)}
@@ -330,20 +342,22 @@ const pointers={};
 function leverEl(id){return document.querySelector(id==='swing'?'.hlever':'.lever[data-id="'+id+'"]');}
 LV.forEach(l=>{l.el=leverEl(l.id);});
 function bindVertical(l){
-  const el=l.el,slot=el.querySelector('.slot');
+  const el=l.el,slot=el.querySelector('.slot'),knob=el.querySelector('.knob');
   function setFromY(clientY){
     const r=slot.getBoundingClientRect();
     l.v=clamp(-(clientY-(r.top+r.height/2))/(r.height/2-28),-1,1);
     l.active=true;el.classList.add('hold');
+    knob.style.top=(50-l.v*32)+'%';
   }
   el.addEventListener('pointerdown',e=>{
     if(!S.started||S.paused||!l.enabled)return;
     audioInit();e.preventDefault();
-    pointers[e.pointerId]=l;el.setPointerCapture(e.pointerId);
+    pointers[e.pointerId]=l;
     setFromY(e.clientY);
+    try{el.setPointerCapture(e.pointerId);}catch(err){}
   });
   el.addEventListener('pointermove',e=>{if(pointers[e.pointerId]!==l)return;setFromY(e.clientY);});
-  const end=e=>{if(pointers[e.pointerId]===l){l.active=false;el.classList.remove('hold');delete pointers[e.pointerId];}};
+  const end=e=>{if(pointers[e.pointerId]===l){l.active=false;el.classList.remove('hold');knob.style.top='50%';delete pointers[e.pointerId];}};
   el.addEventListener('pointerup',end);
   el.addEventListener('pointercancel',end);
 }
@@ -360,8 +374,9 @@ LV.filter(l=>l.id!=='swing').forEach(bindVertical);
   el.addEventListener('pointerdown',e=>{
     if(!S.started||S.paused||!l.enabled)return;
     audioInit();e.preventDefault();
-    pointers[e.pointerId]=l;el.setPointerCapture(e.pointerId);
+    pointers[e.pointerId]=l;
     setFromX(e.clientX);
+    try{el.setPointerCapture(e.pointerId);}catch(err){}
   });
   el.addEventListener('pointermove',e=>{if(pointers[e.pointerId]!==l)return;setFromX(e.clientX);});
   const end=e=>{if(pointers[e.pointerId]===l){l.active=false;el.classList.remove('hold');slot.querySelector('.hknob').style.left='50%';delete pointers[e.pointerId];}};
@@ -421,7 +436,7 @@ const TUT=[
    check:()=>D.carry},
   {ico:'🚛',txt:'FULL! Slide <b>SWING ◀</b> all the way left to the truck!',lev:['swing'],
    check:()=>Math.min(Math.abs(D.swing-178),Math.abs(D.swing+180))<16},
-  {ico:'⬆️',txt:'Lift BOOM a little, then push <b>BUCKET UP ⬆</b> to DUMP!',lev:['boom','stick','buck','swing'],
+  {ico:'⬆️',txt:'Fold the arm over the truck: <b>STICK ⬆</b> + <b>BOOM</b> up, then push <b>BUCKET ⬆</b> to DUMP!',lev:['boom','stick','buck','swing'],
    check:()=>S.loads>=1},
 ];
 function startTutorial(){
@@ -488,9 +503,9 @@ function digUpdate(dt){
     if(!l.active)l.v=lerp(l.v,0,Math.min(1,12*dt));
   });
   const vb=LV[0].v,vs=LV[1].v,vk=LV[2].v,vw=LV[3].v;
-  D.e1=clamp(D.e1+vb*RATE.boom*dt,-38,72);
-  D.e2=clamp(D.e2+vs*RATE.stick*dt,-10,92);
-  D.e3=clamp(D.e3+vk*RATE.buck*dt,-32,122);
+  D.e1=clamp(D.e1+vb*RATE.boom*dt,-38,72);    // lever down → boom lowers
+  D.e2=clamp(D.e2-vs*RATE.stick*dt,-10,92);   // lever down → stick reaches out
+  D.e3=clamp(D.e3-vk*RATE.buck*dt,-32,122);   // lever down → bucket curls (scoop)
   D.swing=clamp(D.swing+vw*RATE.swing*dt,-186,58);
   const anyMove=Math.abs(vb)>.12||Math.abs(vs)>.12||Math.abs(vk)>.12||Math.abs(vw)>.12;
   if(hissGain)hissGain.gain.value=anyMove?.055:0;
@@ -499,7 +514,7 @@ function digUpdate(dt){
   const fw=(FACE.off-40)/FACE.cols;
   const zx=DX()+40+zone.i*fw, zw=zone.w*fw;
   const inZone=Math.abs(a.x-(zx+zw/2))<zw/2+16&&a.y>GY-FACE.base-6&&a.y<GY+20&&a.x>DX()+40;
-  if(vk>0.15&&inZone&&!D.carry){
+  if(vk<-0.15&&inZone&&!D.carry){       // lever DOWN = scoop
     const bi=clamp(zone.i+Math.floor(R()*zone.w),0,FACE.cols-1);
     if(cols[bi]>30){
       cols[bi]=Math.max(30,cols[bi]-58*dt);
@@ -513,10 +528,16 @@ function digUpdate(dt){
         updateUI();
       }
     }
-  }else if(!D.carry&&D.fill>0&&vk<-0.1)D.fill=Math.max(0,D.fill-dt*2);
+  }else if(!D.carry&&D.fill>0&&vk>0.1)D.fill=Math.max(0,D.fill-dt*2);   // lever UP = open/spill
   const miss=Math.min(Math.abs(D.swing-178),Math.abs(D.swing+180));
   const overBed=D.carry&&miss<20&&Math.abs(a.x-(DX()+TRUCK.bedOff))<62&&a.y<GY-70;
-  if(D.carry&&overBed&&vk<-0.12){
+  // live coach: trying to dump from too far during the tutorial
+  if(S.tutorial&&tutStep===6&&D.carry&&miss<24&&vk>0.12&&!overBed){
+    $('tutTxt').innerHTML=a.y>=GY-70
+      ?'Higher! Push <b>BOOM ⬆</b> up so the bucket is over the glowing bed!'
+      :'Closer! Pull <b>STICK ⬆</b> in until the bucket is over the glowing bed!';
+  }
+  if(D.carry&&overBed&&vk>0.12){        // lever UP over the bed = dump
     D.carry=false;D.fill=0;
     S.loads++;sDump();dirt(a.x,a.y+16,9);
     updateUI();
